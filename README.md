@@ -1,4 +1,4 @@
-# cipher
+2# cipher
 ## cipher encrypted messaging
 💬 Cipher is an End-to-End Encrypted messaging app built on HTML. Messages are encrypted and only users with the correct Room ID and Passphrase can view messages and chat in that specific room.
 
@@ -22,7 +22,7 @@
   - Added better error messages, unhid error codes
   - Added detection for Phone sign-in not enabled and for running as a local file
   ##### v0.0.3.1 (September 3, 2026)
-    - Shows "not in service" next to Phone tab to let users know phone log in is not working
+    - Shows 'not in service' next to Phone tab to let users know phone log in is not working
 
 
 #### PASSPHRASES AND MESSAGES ARE END-TO-END ENCRYPTED AND CANNOT BE RECOVERED IF PASSPHRASE IS LOST! THE CIPHER TEAM DOES NOT HAVE ACCESS TO UNENCRYPTED MESSAGES OR PASSPHRASES!
