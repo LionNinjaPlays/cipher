@@ -374,7 +374,7 @@
     </div>
     <div class="field">
       <label for="in-pass">Passphrase</label>
-      <input id="in-pass" type="password" autocomplete="off" placeholder="shared secret, 6+ characters" />
+      <input id="in-pass" type="password" autocomplete="off" placeholder="shared secret, 8+ characters" />
       <div class="hint">There's no password reset — if you lose this, the messages are gone for good.</div>
     </div>
     <div class="field">
@@ -553,7 +553,7 @@
     switch(code){
       case "auth/email-already-in-use": return "An account with that email already exists — try logging in instead.";
       case "auth/invalid-email": return "That email address doesn't look right.";
-      case "auth/weak-password": return "Password should be at least 6 characters.";
+      case "auth/weak-password": return "Password should be at least 8 characters.";
       case "auth/user-not-found":
       case "auth/wrong-password":
       case "auth/invalid-credential": return "Incorrect email or password.";
