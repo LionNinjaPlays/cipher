@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cipher — Encrypted Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --bg: #f4f5fa;
+    --surface: #ffffff;
+    --surface-2: #f0f1f7;
+    --border: #e5e7f0;
+    --text-primary: #15172a;
+    --text-secondary: #6c7086;
+    --text-muted: #9a9db0;
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --accent-soft: #eeecfd;
+    --accent-text: #4338ca;
+    --success: #16a34a;
+    --success-soft: #e9f9ef;
+    --danger: #dc2626;
+    --danger-soft: #fdecec;
+    --radius-lg: 20px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; height:100%; }
+  body{
+    background: var(--bg);
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #app{
+    width:100%; max-width: 460px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 2px rgba(20,20,43,0.04), 0 16px 40px rgba(20,20,43,0.08);
+    border: 1px solid var(--border);
+    min-height: 640px;
+    max-height: 90vh;
+    display:flex; flex-direction:column;
+    overflow: hidden;
+  }
+
+  .screen{ display:none; flex-direction:column; flex:1; min-height:0; }
+  .screen.active{ display:flex; }
+  .screen-scroll{ overflow-y:auto; }
+
+  /* ---------- Gate / Auth screens ---------- */
+  #gate, #auth{ padding: 40px 32px; justify-content:center; }
+  .brand{
+    display:flex; align-items:center; gap:10px; margin-bottom: 28px;
+  }
+  .brand-mark{
+    width:38px; height:38px; border-radius: 11px;
+    background: linear-gradient(160deg, var(--accent), #7c3aed);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .brand-mark svg{ width:20px; height:20px; }
+  .brand-name{ font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand-sub{ font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+
+  .lede{ font-size: 14px; color: var(--text-secondary); line-height:1.6; margin: 0 0 26px; }
+  .lede strong{ color: var(--text-primary); font-weight:600; }
+
+  .field{ margin-bottom: 16px; }
+  .field label{
+    display:block; font-size: 12.5px; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .field input{
+    width:100%; height: 44px; padding: 0 14px;
+    background: var(--surface-2); border: 1.5px solid transparent;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-ui); font-size: 14.5px; color: var(--text-primary);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .field input::placeholder{ color: var(--text-muted); }
+  .field input:focus{
+    outline:none; border-color: var(--accent); background: var(--surface);
+  }
+  .field .hint{ font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+  .alert{
+    background: var(--danger-soft); color: var(--danger);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+    font-size: 12.5px; line-height:1.5; margin-bottom: 16px; display:none;
+  }
+  .alert.show{ display:block; }
+
+  .btn{
+    font-family: var(--font-ui); font-weight: 600; font-size: 14px;
+    border: none; border-radius: var(--radius-sm); cursor: pointer;
+    transition: background 0.15s, opacity 0.15s, transform 0.05s;
+  }
+  .btn-primary{
+    width:100%; height: 46px; background: var(--accent); color: #fff;
+  }
+  .btn-primary:hover{ background: var(--accent-hover); }
+  .btn-primary:active{ transform: scale(0.99); }
+  .btn-primary:disabled{ opacity: 0.55; cursor:default; }
+  .btn-icon{
+    width:36px; height:36px; border-radius: 10px; background: var(--surface-2);
+    color: var(--text-secondary); display:flex; align-items:center; justify-content:center;
+    padding:0;
+  }
+  .btn-icon:hover{ background: var(--border); color: var(--text-primary); }
+  .btn-icon svg{ width:17px; height:17px; }
+  .btn-danger-text{
+    background:none; color: var(--danger); font-size:13px; padding: 8px 10px;
+  }
+  .btn-danger-text:hover{ background: var(--danger-soft); }
+
+  /* ---------- Method tabs (auth screen) ---------- */
+  .method-tabs{
+    display:flex; gap:4px; margin-bottom: 20px;
+    background: var(--surface-2); padding: 4px; border-radius: 10px;
+  }
+  .method-tab{
+    flex:1; background:none; border:none; padding: 8px 4px;
+    font-family: var(--font-ui); font-size: 12px; font-weight:600;
+    color: var(--text-secondary); border-radius: 7px; cursor:pointer;
+  }
+  .method-tab.active{
+    background: var(--surface); color: var(--accent-text);
+    box-shadow: 0 1px 2px rgba(20,20,43,0.08);
+  }
+  .auth-method{ display:none; }
+  .auth-method.active{ display:block; }
+
+  /* ---------- Chat screen ---------- */
+  #chat{ min-height:0; }
+  .chat-header{
+    display:flex; align-items:center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    flex-shrink:0;
+  }
+  .avatar{
+    width:38px; height:38px; border-radius:50%;
+    background: var(--accent-soft); color: var(--accent-text);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13.5px; flex-shrink:0;
+  }
+  .chat-title-block{ flex:1; min-width:0; }
+  .chat-title{ font-size: 14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chat-sub{ display:flex; align-items:center; gap:5px; font-size: 11.5px; color: var(--text-secondary); margin-top:1px; }
+  .chat-sub .live-dot{ width:6px; height:6px; border-radius:50%; background: var(--success); flex-shrink:0; }
+  .chat-sub .live-dot.off{ background: var(--text-muted); }
+  .header-actions{ display:flex; gap:6px; flex-shrink:0; }
+
+  .fingerprint-row{
+    display:flex; align-items:center; gap:8px;
+    padding: 10px 16px; background: var(--surface-2);
+    border-bottom: 1px solid var(--border); flex-shrink:0;
+  }
+  .fingerprint-row svg{ width:14px; height:14px; color: var(--text-secondary); flex-shrink:0; }
+  .fingerprint-row .fp-label{ font-size:11px; color: var(--text-secondary); }
+  .fingerprint-row .fp-code{
+    font-family: var(--font-mono); font-size: 12px; font-weight:500;
+    color: var(--text-primary); letter-spacing:0.02em;
+  }
+
+  #thread{
+    flex:1; overflow-y:auto; padding: 16px; min-height:0;
+    display:flex; flex-direction:column; gap: 10px;
+  }
+  #thread::-webkit-scrollbar{ width:6px; }
+  #thread::-webkit-scrollbar-thumb{ background: var(--border); border-radius:3px; }
+
+  .empty-state{
+    margin:auto; text-align:center; max-width: 260px;
+  }
+  .empty-state .ic{
+    width:48px; height:48px; border-radius:50%; background: var(--accent-soft);
+    display:flex; align-items:center; justify-content:center; margin: 0 auto 12px;
+  }
+  .empty-state .ic svg{ width:22px; height:22px; color: var(--accent); }
+  .empty-state p{ font-size: 13px; color: var(--text-secondary); line-height:1.6; margin:0; }
+
+  .msg-row{ display:flex; flex-direction:column; max-width: 76%; animation: rise 0.25s ease-out; }
+  @keyframes rise{ from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .msg-row.mine{ align-self:flex-end; align-items:flex-end; }
+  .msg-row.theirs{ align-self:flex-start; align-items:flex-start; }
+  .msg-sender{ font-size:11px; color: var(--text-muted); margin: 0 4px 3px; }
+  .bubble{
+    padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height:1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .msg-row.mine .bubble{ background: var(--accent); color:#fff; border-bottom-right-radius:4px; }
+  .msg-row.theirs .bubble{ background: var(--surface-2); color: var(--text-primary); border-bottom-left-radius:4px; }
+  .msg-row.failed .bubble{ background: var(--danger-soft); color: var(--danger); font-style:italic; }
+  .msg-time{ font-size:10.5px; color: var(--text-muted); margin: 3px 4px 0; }
+
+  .composer{
+    display:flex; align-items:flex-end; gap:8px;
+    padding: 12px 14px; border-top: 1px solid var(--border); flex-shrink:0;
+  }
+  .composer textarea{
+    flex:1; resize:none; border:none; background: var(--surface-2);
+    border-radius: 18px; padding: 11px 16px; font-family: var(--font-ui);
+    font-size: 14px; color: var(--text-primary); min-height:42px; max-height:110px;
+    line-height:1.4;
+  }
+  .composer textarea::placeholder{ color: var(--text-muted); }
+  .composer textarea:focus{ outline: none; box-shadow: 0 0 0 2px var(--accent); }
+  .send-btn{
+    width:42px; height:42px; border-radius:50%; background: var(--accent);
+    color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    border:none; cursor:pointer;
+  }
+  .send-btn:hover{ background: var(--accent-hover); }
+  .send-btn:disabled{ opacity:0.5; cursor:default; }
+  .send-btn svg{ width:18px; height:18px; }
+
+  .status-strip{
+    font-size: 11px; color: var(--text-muted); text-align:center;
+    padding: 6px 0 2px; flex-shrink:0;
+  }
+  .status-strip.err{ color: var(--danger); }
+
+  /* ---------- Overlay ---------- */
+  .overlay{
+    position:absolute; inset:0; background: rgba(20,20,35,0.45);
+    display:none; align-items:center; justify-content:center; padding:24px; z-index:5;
+  }
+  .overlay.active{ display:flex; }
+  .overlay-card{
+    background: var(--surface); border-radius: var(--radius-md);
+    padding: 22px; max-width: 320px; text-align:center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+  }
+  .overlay-card .ic{
+    width:44px; height:44px; border-radius:50%; background: var(--danger-soft);
+    display:flex; align-items:center; justify-content:center; margin: 0 auto 14px;
+  }
+  .overlay-card .ic svg{ width:20px; height:20px; color: var(--danger); }
+  .overlay-card p{ font-size:13px; color: var(--text-secondary); line-height:1.6; margin: 0 0 18px; }
+  .overlay-card .row{ display:flex; gap:8px; }
+  .overlay-card .row .btn{ flex:1; height:40px; }
+  .btn-secondary{ background: var(--surface-2); color: var(--text-primary); }
+  .btn-secondary:hover{ background: var(--border); }
+  .btn-danger{ background: var(--danger); color:#fff; }
+  .btn-danger:hover{ background: #b91c1c; }
+
+  #app{ position: relative; }
+
+  @media (max-width: 480px){
+    body{ padding:0; }
+    #app{ max-width:100%; min-height:100vh; max-height:100vh; border-radius:0; border:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- AUTH SCREEN -->
+  <div class="screen active screen-scroll" id="auth">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+      </div>
+      <div>
+        <div class="brand-name">Cipher</div>
+        <div class="brand-sub" id="auth-title">Log in</div>
+      </div>
+    </div>
+
+    <p class="lede">
+      An account keeps random scripts and bots off the database. It doesn't see your room
+      passphrases — those still never leave your browser.
+    </p>
+
+    <div class="method-tabs">
+      <button class="method-tab active" data-method="password" type="button">Password</button>
+      <button class="method-tab" data-method="emaillink" type="button">Email link</button>
+      <button class="method-tab" data-method="phone" type="button">Phone</button>
+    </div>
+
+    <div class="alert" id="auth-error"></div>
+    <p class="hint" id="auth-status" style="margin: -8px 0 16px; display:none;"></p>
+
+    <!-- PASSWORD METHOD -->
+    <div class="auth-method active" id="method-password">
+      <div class="field">
+        <label for="in-auth-email">Email</label>
+        <input id="in-auth-email" type="email" autocomplete="email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label for="in-auth-password">Password</label>
+        <input id="in-auth-password" type="password" autocomplete="current-password" placeholder="At least 6 characters" />
+      </div>
+      <button class="btn btn-primary" id="btn-auth-submit">Log in</button>
+      <p class="hint" style="text-align:center; margin-top:14px;">
+        <a href="#" id="auth-toggle-mode" style="color:var(--accent); text-decoration:none;">Don't have an account? Sign up</a>
+      </p>
+      <p class="hint" style="text-align:center; margin-top:6px;">
+        <a href="#" id="btn-forgot-password" style="color:var(--text-muted); text-decoration:none;">Forgot password?</a>
+      </p>
+    </div>
+
+    <!-- EMAIL LINK METHOD -->
+    <div class="auth-method" id="method-emaillink">
+      <div class="field">
+        <label for="in-emaillink-email">Email</label>
+        <input id="in-emaillink-email" type="email" autocomplete="email" placeholder="you@example.com" />
+      </div>
+      <button class="btn btn-primary" id="btn-send-emaillink">Send sign-in link</button>
+      <p class="hint" style="text-align:center; margin-top:14px;">
+        No password — we'll email you a link. Open it on this same device/browser to finish signing in.
+      </p>
+    </div>
+
+    <!-- PHONE METHOD -->
+    <div class="auth-method" id="method-phone">
+      <div class="field">
+        <label for="in-phone-number">Phone number</label>
+        <input id="in-phone-number" type="tel" autocomplete="tel" placeholder="+1 555 123 4567" />
+        <div class="hint">Include the country code (e.g. +1 for the US).</div>
+      </div>
+      <button class="btn btn-primary" id="btn-send-code">Send code</button>
+
+      <div class="field" id="phone-step-code" style="display:none; margin-top:16px;">
+        <label for="in-phone-code">Verification code</label>
+        <input id="in-phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" />
+      </div>
+      <button class="btn btn-primary" id="btn-verify-code" style="display:none; margin-top:8px;">Verify code</button>
+
+      <div id="recaptcha-container"></div>
+    </div>
+  </div>
+
+  <!-- GATE SCREEN -->
+  <div class="screen" id="gate">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+      <span id="gate-account-id" style="font-size:12px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+      <button class="btn-danger-text" id="btn-logout" style="padding:5px 10px; border-radius:8px; cursor:pointer; border:none; flex-shrink:0;">Log out</button>
+    </div>
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+      </div>
+      <div>
+        <div class="brand-name">Cipher</div>
+        <div class="brand-sub">End-to-end encrypted, no server</div>
+      </div>
+    </div>
+
+    <p class="lede">
+      Pick a <strong>room ID</strong> and <strong>passphrase</strong> — anyone using the same
+      two values derives the same encryption key. Everything is encrypted with AES-256 before
+      it's sent anywhere, and your passphrase itself never leaves this browser.
+    </p>
+
+    <div class="alert" id="gate-error"></div>
+
+    <div class="field">
+      <label for="in-room">Room ID</label>
+      <input id="in-room" type="text" autocomplete="off" placeholder="e.g. weekend-plans" />
+    </div>
+    <div class="field">
+      <label for="in-pass">Passphrase</label>
+      <input id="in-pass" type="password" autocomplete="off" placeholder="shared secret, 6+ characters" />
+      <div class="hint">There's no password reset — if you lose this, the messages are gone for good.</div>
+    </div>
+    <div class="field">
+      <label for="in-name">Your name</label>
+      <input id="in-name" type="text" autocomplete="off" placeholder="how others will see you" />
+    </div>
+
+    <button class="btn btn-primary" id="btn-enter" style="margin-top:6px;">Enter room</button>
+
+    <p class="hint" style="text-align:center; margin-top:16px;">
+      Syncs in real time across any device — messages are stored encrypted, readable only with the passphrase.
+    </p>
+  </div>
+
+  <!-- CHAT SCREEN -->
+  <div class="screen" id="chat">
+    <div class="chat-header">
+      <div class="avatar" id="hdr-avatar">?</div>
+      <div class="chat-title-block">
+        <div class="chat-title" id="hdr-room">Room</div>
+        <div class="chat-sub"><span class="live-dot off" id="live-dot"></span><span id="live-label">connecting…</span></div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="btn-leave" title="Leave room">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+        <button class="btn-icon" id="btn-purge" title="Delete all messages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="fingerprint-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+      <span class="fp-label">Key fingerprint — verify it matches on both ends:</span>
+      <span class="fp-code" id="fp-code">— — — —</span>
+    </div>
+
+    <div id="thread"></div>
+    <div class="status-strip" id="status-line"></div>
+
+    <div class="composer">
+      <textarea id="in-msg" placeholder="Message" rows="1"></textarea>
+      <button class="send-btn" id="btn-send" title="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- PURGE CONFIRM -->
+  <div class="overlay" id="purge-overlay">
+    <div class="overlay-card">
+      <div class="ic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      </div>
+      <p>Delete every message in this room for everyone? This can't be undone.</p>
+      <div class="row">
+        <button class="btn btn-secondary" id="purge-cancel">Cancel</button>
+        <button class="btn btn-danger" id="purge-confirm">Delete all</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCwWihzNba0-2-rFOkSCaTydM_niH-HuvU",
+    authDomain: "ciphermessaging.firebaseapp.com",
+    databaseURL: "https://ciphermessaging-default-rtdb.firebaseio.com",
+    projectId: "ciphermessaging",
+    storageBucket: "ciphermessaging.firebasestorage.app",
+    messagingSenderId: "848714536522",
+    appId: "1:848714536522:web:2d29ccb75355ce77a3f8b3"
+  };
+
+  const FIREBASE_READY = (function(){
+    try{
+      firebase.initializeApp(firebaseConfig);
+      return true;
+    }catch(e){ return false; }
+  })();
+  const db = FIREBASE_READY ? firebase.database() : null;
+  const auth = FIREBASE_READY ? firebase.auth() : null;
+
+  const STORAGE_PREFIX = "cipher:room:";
+  const EMAIL_FOR_SIGNIN_KEY = "cipher:emailForSignIn";
+
+  let cryptoKey = null;
+  let roomId = null;
+  let callsign = null;
+  let senderTag = null;
+  let knownIds = new Set();
+  let sending = false;
+
+  const $ = (sel) => document.querySelector(sel);
+  const gateScreen = $("#gate");
+  const chatScreen = $("#chat");
+  const authScreen = $("#auth");
+  const gateError = $("#gate-error");
+  const thread = $("#thread");
+  const statusLine = $("#status-line");
+  const liveDot = $("#live-dot");
+  const liveLabel = $("#live-label");
+  const authError = $("#auth-error");
+  const authStatus = $("#auth-status");
+
+  function setStatus(text, isErr){
+    statusLine.textContent = text;
+    statusLine.classList.toggle("err", !!isErr);
+  }
+
+  const STORAGE_AVAILABLE = FIREBASE_READY;
+
+  function roomKey(room){
+    return room.trim().toLowerCase().replace(/[.#$\[\]\/\s]/g, "_");
+  }
+
+  function bytesToBase64(bytes){
+    let bin = "";
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    return btoa(bin);
+  }
+  function base64ToBytes(b64){
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function bytesToHex(bytes){
+    return Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join("");
+  }
+
+  async function deriveKey(passphrase, room){
+    const enc = new TextEncoder();
+    const baseKey = await crypto.subtle.importKey(
+      "raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+      { name:"PBKDF2", salt: enc.encode("cipher-salt::" + room.toLowerCase().trim()), iterations: 150000, hash: "SHA-256" },
+      baseKey, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]
+    );
+  }
+
+  async function computeFingerprint(passphrase, room){
+    const enc = new TextEncoder();
+    const digest = await crypto.subtle.digest("SHA-256", enc.encode("fingerprint::" + room.toLowerCase().trim() + "::" + passphrase));
+    const hex = bytesToHex(new Uint8Array(digest)).toUpperCase();
+    return hex.slice(0,4) + "-" + hex.slice(4,8) + "-" + hex.slice(8,12);
+  }
+
+  async function encryptText(key, text){
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder();
+    const ctBuf = await crypto.subtle.encrypt({ name:"AES-GCM", iv }, key, enc.encode(text));
+    return { iv: bytesToBase64(iv), ct: bytesToBase64(new Uint8Array(ctBuf)) };
+  }
+  async function decryptText(key, ivB64, ctB64){
+    const iv = base64ToBytes(ivB64);
+    const ct = base64ToBytes(ctB64);
+    const ptBuf = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, key, ct);
+    return new TextDecoder().decode(ptBuf);
+  }
+
+  /* ================= AUTH ================= */
+
+  let authMode = "login";
+  let confirmationResult = null;
+  let recaptchaVerifier = null;
+
+  function friendlyAuthError(e){
+    const code = e && e.code;
+    switch(code){
+      case "auth/email-already-in-use": return "An account with that email already exists — try logging in instead.";
+      case "auth/invalid-email": return "That email address doesn't look right.";
+      case "auth/weak-password": return "Password should be at least 6 characters.";
+      case "auth/user-not-found":
+      case "auth/wrong-password":
+      case "auth/invalid-credential": return "Incorrect email or password.";
+      case "auth/too-many-requests": return "Too many attempts — wait a bit and try again.";
+      case "auth/missing-email": return "Enter your email first.";
+      case "auth/invalid-action-code":
+      case "auth/expired-action-code": return "This sign-in link is invalid or has expired — request a new one.";
+      case "auth/invalid-phone-number": return "That phone number doesn't look right — include the country code.";
+      case "auth/invalid-verification-code": return "That code doesn't match — check it and try again.";
+      case "auth/code-expired": return "That code expired — request a new one.";
+      case "auth/missing-phone-number": return "Enter a phone number first.";
+      default: return "Something went wrong. Try again.";
+    }
+  }
+
+  function showAuthError(msg){
+    authStatus.style.display = "none";
+    authError.textContent = msg;
+    authError.classList.add("show");
+  }
+  function showAuthStatus(msg){
+    authError.classList.remove("show");
+    authStatus.textContent = msg;
+    authStatus.style.display = "block";
+  }
+  function clearAuthMessages(){
+    authError.classList.remove("show");
+    authStatus.style.display = "none";
+  }
+
+  function setAuthMode(mode){
+    authMode = mode;
+    clearAuthMessages();
+    if(mode === "login"){
+      $("#auth-title").textContent = "Log in";
+      $("#btn-auth-submit").textContent = "Log in";
+      $("#auth-toggle-mode").textContent = "Don't have an account? Sign up";
+    }else{
+      $("#auth-title").textContent = "Create account";
+      $("#btn-auth-submit").textContent = "Create account";
+      $("#auth-toggle-mode").textContent = "Already have an account? Log in";
+    }
+  }
+
+  function setAuthMethodTab(method){
+    document.querySelectorAll(".method-tab").forEach(t => {
+      t.classList.toggle("active", t.dataset.method === method);
+    });
+    document.querySelectorAll(".auth-method").forEach(el => {
+      el.classList.toggle("active", el.id === "method-" + method);
+    });
+    clearAuthMessages();
+  }
+
+  async function handleAuthSubmit(){
+    const email = $("#in-auth-email").value.trim();
+    const password = $("#in-auth-password").value;
+    clearAuthMessages();
+
+    if(!STORAGE_AVAILABLE){
+      showAuthError("Couldn't connect to the backend. Check your internet connection and reload.");
+      return;
+    }
+    if(!email || !password){
+      showAuthError("Enter both an email and a password.");
+      return;
+    }
+
+    const btn = $("#btn-auth-submit");
+    btn.disabled = true;
+    btn.textContent = "Working…";
+    try{
+      if(authMode === "login"){
+        await auth.signInWithEmailAndPassword(email, password);
+      }else{
+        await auth.createUserWithEmailAndPassword(email, password);
+      }
+      $("#in-auth-password").value = "";
+    }catch(e){
+      showAuthError(friendlyAuthError(e));
+    }finally{
+      btn.disabled = false;
+      btn.textContent = authMode === "login" ? "Log in" : "Create account";
+    }
+  }
+
+  async function handleForgotPassword(){
+    const email = $("#in-auth-email").value.trim();
+    clearAuthMessages();
+    if(!email){
+      showAuthError("Enter your email above first, then tap forgot password.");
+      return;
+    }
+    try{
+      await auth.sendPasswordResetEmail(email);
+      showAuthStatus("Password reset email sent — check your inbox.");
+    }catch(e){
+      showAuthError(friendlyAuthError(e));
+    }
+  }
+
+  async function handleSendEmailLink(){
+    const email = $("#in-emaillink-email").value.trim();
+    clearAuthMessages();
+    if(!STORAGE_AVAILABLE){
+      showAuthError("Couldn't connect to the backend. Check your internet connection and reload.");
+      return;
+    }
+    if(!email){
+      showAuthError("Enter your email first.");
+      return;
+    }
+    if(location.protocol === "file:"){
+      showAuthError("Email link sign-in needs this app hosted at a real web address — it can't complete from a local file. Use password or phone sign-in here instead.");
+      return;
+    }
+    const btn = $("#btn-send-emaillink");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try{
+      const actionCodeSettings = {
+        url: window.location.href,
+        handleCodeInApp: true
+      };
+      await auth.sendSignInLinkToEmail(email, actionCodeSettings);
+      window.localStorage.setItem(EMAIL_FOR_SIGNIN_KEY, email);
+      showAuthStatus("Check your inbox — open the link on this device to finish signing in.");
+    }catch(e){
+      showAuthError(friendlyAuthError(e));
+    }finally{
+      btn.disabled = false;
+      btn.textContent = "Send sign-in link";
+    }
+  }
+
+  async function completeEmailLinkSignInIfPresent(){
+    if(!STORAGE_AVAILABLE) return;
+    if(!auth.isSignInWithEmailLink(window.location.href)) return;
+    let email = window.localStorage.getItem(EMAIL_FOR_SIGNIN_KEY);
+    if(!email){
+      email = window.prompt("Confirm the email address you used to request this link:");
+    }
+    if(!email) return;
+    try{
+      await auth.signInWithEmailLink(email, window.location.href);
+      window.localStorage.removeItem(EMAIL_FOR_SIGNIN_KEY);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }catch(e){
+      showAuthError(friendlyAuthError(e));
+    }
+  }
+
+  function ensureRecaptcha(){
+    if(!recaptchaVerifier){
+      recaptchaVerifier = new firebase.auth.RecaptchaVerifier("recaptcha-container", { size: "invisible" }, auth);
+    }
+    return recaptchaVerifier;
+  }
+
+  function resetPhoneForm(){
+    confirmationResult = null;
+    $("#in-phone-code").value = "";
+    $("#phone-step-code").style.display = "none";
+    $("#btn-verify-code").style.display = "none";
+    $("#btn-send-code").style.display = "block";
+  }
+
+  async function handleSendCode(){
+    const phone = $("#in-phone-number").value.trim();
+    clearAuthMessages();
+    if(!STORAGE_AVAILABLE){
+      showAuthError("Couldn't connect to the backend. Check your internet connection and reload.");
+      return;
+    }
+    if(!phone){
+      showAuthError("Enter a phone number, including country code.");
+      return;
+    }
+    const btn = $("#btn-send-code");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try{
+      const verifier = ensureRecaptcha();
+      confirmationResult = await auth.signInWithPhoneNumber(phone, verifier);
+      $("#phone-step-code").style.display = "block";
+      $("#btn-verify-code").style.display = "block";
+      showAuthStatus("Code sent — check your texts.");
+    }catch(e){
+      showAuthError(friendlyAuthError(e));
+    }finally{
+      btn.disabled = false;
+      btn.textContent = "Send code";
+    }
+  }
+
+  async function handleVerifyCode(){
+    const code = $("#in-phone-code").value.trim();
+    clearAuthMessages();
+    if(!code){
+      showAuthError("Enter the code you received.");
+      return;
+    }
+    if(!confirmationResult){
+      showAuthError("Request a new code first.");
+      return;
+    }
+    const btn = $("#btn-verify-code");
+    btn.disabled = true;
+    btn.textContent = "Verifying…";
+    try{
+      await confirmationResult.confirm(code);
+    }catch(e){
+      showAuthError(friendlyAuthError(e));
+    }finally{
+      btn.disabled = false;
+      btn.textContent = "Verify code";
+    }
+  }
+
+  async function handleLogout(){
+    if(chatScreen.classList.contains("active")) leaveRoom();
+    resetPhoneForm();
+    if(recaptchaVerifier){
+      try{ recaptchaVerifier.clear(); }catch(e){}
+      recaptchaVerifier = null;
+    }
+    await auth.signOut();
+  }
+
+  if(FIREBASE_READY){
+    completeEmailLinkSignInIfPresent();
+    auth.onAuthStateChanged((user) => {
+      if(user){
+        $("#gate-account-id").textContent = user.email || user.phoneNumber || "signed in";
+        authScreen.classList.remove("active");
+        if(!chatScreen.classList.contains("active")) gateScreen.classList.add("active");
+      }else{
+        chatScreen.classList.remove("active");
+        gateScreen.classList.remove("active");
+        authScreen.classList.add("active");
+      }
+    });
+  }else{
+    showAuthError("Couldn't connect to the backend. Check your internet connection and reload.");
+  }
+
+  /* ================= ROOM STORAGE ================= */
+
+  async function loadRoomMessages(room){
+    const snap = await db.ref("rooms/" + roomKey(room) + "/messages").once("value");
+    const val = snap.val();
+    if(!val) return [];
+    return Object.keys(val)
+      .map(k => Object.assign({ id: k }, val[k]))
+      .sort((a,b) => a.ts - b.ts);
+  }
+  async function appendRoomMessage(room, msgObj){
+    const { id, ...rest } = msgObj;
+    await db.ref("rooms/" + roomKey(room) + "/messages").push(rest);
+  }
+  async function purgeRoom(room){
+    await db.ref("rooms/" + roomKey(room) + "/messages").remove();
+  }
+
+  function initials(name){
+    return name.trim().split(/\s+/).slice(0,2).map(w => w[0].toUpperCase()).join("") || "?";
+  }
+
+  function renderEmptyIfNeeded(){
+    if(thread.children.length === 0){
+      const div = document.createElement("div");
+      div.className = "empty-state";
+      div.id = "empty-state";
+      div.innerHTML = '<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div><p>No messages yet. Anything sent here is only readable by people with this passphrase.</p>';
+      thread.appendChild(div);
+    }
+  }
+  function clearEmptyState(){
+    const es = document.getElementById("empty-state");
+    if(es) es.remove();
+  }
+  function formatTime(ts){
+    return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function renderMessage(m, decryptedText, failed){
+    clearEmptyState();
+    const isMine = m.senderTag === senderTag;
+    const row = document.createElement("div");
+    row.className = "msg-row " + (isMine ? "mine" : "theirs") + (failed ? " failed" : "");
+    if(!isMine){
+      const sender = document.createElement("div");
+      sender.className = "msg-sender";
+      sender.textContent = m.sender || "unknown";
+      row.appendChild(sender);
+    }
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = failed ? "Couldn't decrypt this message" : decryptedText;
+    row.appendChild(bubble);
+    const time = document.createElement("div");
+    time.className = "msg-time";
+    time.textContent = formatTime(m.ts);
+    row.appendChild(time);
+    thread.appendChild(row);
+  }
+
+  async function renderNewMessages(messages){
+    let addedAny = false;
+    for(const m of messages){
+      if(knownIds.has(m.id)) continue;
+      knownIds.add(m.id);
+      addedAny = true;
+      try{
+        const text = await decryptText(cryptoKey, m.iv, m.ct);
+        renderMessage(m, text, false);
+      }catch(e){
+        renderMessage(m, null, true);
+      }
+    }
+    if(addedAny) thread.scrollTop = thread.scrollHeight;
+    renderEmptyIfNeeded();
+  }
+
+
+  let currentMsgRef = null;
+
+  async function handleSnapshot(snapshot){
+    const val = snapshot.val();
+    if(!val){
+      if(knownIds.size > 0){
+        knownIds.clear();
+        thread.innerHTML = "";
+      }
+      renderEmptyIfNeeded();
+      return;
+    }
+    const messages = Object.keys(val)
+      .map(k => Object.assign({ id: k }, val[k]))
+      .sort((a,b) => a.ts - b.ts);
+    await renderNewMessages(messages);
+  }
+
+  function startListening(){
+    currentMsgRef = db.ref("rooms/" + roomKey(roomId) + "/messages");
+    currentMsgRef.on("value", handleSnapshot, () => {
+      liveDot.classList.add("off");
+      liveLabel.textContent = "sync error";
+      setStatus("Lost connection — will retry", true);
+    });
+    db.ref(".info/connected").on("value", (snap) => {
+      const connected = snap.val() === true;
+      liveDot.classList.toggle("off", !connected);
+      liveLabel.textContent = connected ? "live" : "connecting…";
+    });
+  }
+
+  function stopListening(){
+    if(currentMsgRef) currentMsgRef.off("value", handleSnapshot);
+    currentMsgRef = null;
+    db.ref(".info/connected").off();
+  }
+
+  async function verifyPassphrase(room, key){
+    const messages = await loadRoomMessages(room);
+    if(messages.length === 0) return true;
+    try{
+      await decryptText(key, messages[0].iv, messages[0].ct);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  async function enterRoom(){
+    const room = $("#in-room").value.trim();
+    const pass = $("#in-pass").value;
+    const name = $("#in-name").value.trim();
+
+    gateError.classList.remove("show");
+    gateError.textContent = "";
+
+    if(!STORAGE_AVAILABLE){
+      gateError.textContent = "Couldn't connect to the messaging backend. Check your internet connection and reload.";
+      gateError.classList.add("show");
+      return;
+    }
+    if(!room || !pass || !name){
+      gateError.textContent = "Fill in all three fields to continue.";
+      gateError.classList.add("show");
+      return;
+    }
+    if(pass.length < 6){
+      gateError.textContent = "Passphrase should be at least 6 characters.";
+      gateError.classList.add("show");
+      return;
+    }
+
+    $("#btn-enter").disabled = true;
+    $("#btn-enter").textContent = "Checking…";
+
+    try{
+      cryptoKey = await deriveKey(pass, room);
+
+      const ok = await verifyPassphrase(room, cryptoKey);
+      if(!ok){
+        gateError.textContent = "That passphrase doesn't match this room ID. Check it and try again.";
+        gateError.classList.add("show");
+        cryptoKey = null;
+        return;
+      }
+
+      roomId = room;
+      callsign = name;
+      senderTag = crypto.randomUUID().slice(0,8);
+      knownIds = new Set();
+
+      $("#hdr-room").textContent = room;
+      $("#hdr-avatar").textContent = initials(name);
+      $("#fp-code").textContent = await computeFingerprint(pass, room);
+
+      gateScreen.classList.remove("active");
+      chatScreen.classList.add("active");
+      thread.innerHTML = "";
+      renderEmptyIfNeeded();
+      startListening();
+    }catch(e){
+      gateError.textContent = "Something went wrong deriving the key. Try reloading.";
+      gateError.classList.add("show");
+    }finally{
+      $("#btn-enter").disabled = false;
+      $("#btn-enter").textContent = "Enter room";
+    }
+  }
+
+  async function sendMessage(){
+    const input = $("#in-msg");
+    const text = input.value.trim();
+    if(!text || sending) return;
+    sending = true;
+    $("#btn-send").disabled = true;
+    try{
+      const { iv, ct } = await encryptText(cryptoKey, text);
+      const msgObj = { id: crypto.randomUUID(), sender: callsign, senderTag, iv, ct, ts: Date.now() };
+      await appendRoomMessage(roomId, msgObj);
+      input.value = "";
+      input.style.height = "auto";
+    }catch(e){
+      setStatus("Message failed to send", true);
+    }finally{
+      sending = false;
+      $("#btn-send").disabled = false;
+      input.focus();
+    }
+  }
+
+  function leaveRoom(){
+    stopListening();
+    cryptoKey = null; roomId = null; callsign = null; knownIds = new Set();
+    chatScreen.classList.remove("active");
+    gateScreen.classList.add("active");
+    $("#in-pass").value = "";
+    thread.innerHTML = "";
+  }
+
+  if(!STORAGE_AVAILABLE){
+    liveLabel.textContent = "backend unavailable";
+  }
+
+  /* ---- auth listeners ---- */
+  document.querySelectorAll(".method-tab").forEach(tab => {
+    tab.addEventListener("click", () => setAuthMethodTab(tab.dataset.method));
+  });
+
+  $("#btn-auth-submit").addEventListener("click", handleAuthSubmit);
+  [$("#in-auth-email"), $("#in-auth-password")].forEach(el => {
+    el.addEventListener("keydown", (e) => { if(e.key === "Enter") handleAuthSubmit(); });
+  });
+  $("#auth-toggle-mode").addEventListener("click", (e) => {
+    e.preventDefault();
+    setAuthMode(authMode === "login" ? "signup" : "login");
+  });
+  $("#btn-forgot-password").addEventListener("click", (e) => {
+    e.preventDefault();
+    handleForgotPassword();
+  });
+
+  $("#btn-send-emaillink").addEventListener("click", handleSendEmailLink);
+  $("#in-emaillink-email").addEventListener("keydown", (e) => {
+    if(e.key === "Enter") handleSendEmailLink();
+  });
+
+  $("#btn-send-code").addEventListener("click", handleSendCode);
+  $("#in-phone-number").addEventListener("keydown", (e) => {
+    if(e.key === "Enter") handleSendCode();
+  });
+  $("#btn-verify-code").addEventListener("click", handleVerifyCode);
+  $("#in-phone-code").addEventListener("keydown", (e) => {
+    if(e.key === "Enter") handleVerifyCode();
+  });
+
+  $("#btn-logout").addEventListener("click", handleLogout);
+
+  /* ---- room listeners ---- */
+  $("#btn-enter").addEventListener("click", enterRoom);
+  [$("#in-room"), $("#in-pass"), $("#in-name")].forEach(el => {
+    el.addEventListener("keydown", (e) => { if(e.key === "Enter") enterRoom(); });
+  });
+
+  $("#btn-send").addEventListener("click", sendMessage);
+  $("#in-msg").addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+  });
+  $("#in-msg").addEventListener("input", function(){
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 110) + "px";
+  });
+
+  $("#btn-leave").addEventListener("click", leaveRoom);
+
+  const purgeOverlay = $("#purge-overlay");
+  $("#btn-purge").addEventListener("click", () => purgeOverlay.classList.add("active"));
+  $("#purge-cancel").addEventListener("click", () => purgeOverlay.classList.remove("active"));
+  $("#purge-confirm").addEventListener("click", async () => {
+    purgeOverlay.classList.remove("active");
+    try{
+      await purgeRoom(roomId);
+      knownIds = new Set();
+      thread.innerHTML = "";
+      renderEmptyIfNeeded();
+      setStatus("Room cleared");
+    }catch(e){
+      setStatus("Couldn't clear room", true);
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
