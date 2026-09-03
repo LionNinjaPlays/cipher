@@ -1,5 +1,5 @@
 # cipher
-cipher encrypted messaging app
+> ## cipher encrypted messaging
 hosted on firebase
 make a room id, passphrase, and choose your name
 incorrect passphrases = no room access
