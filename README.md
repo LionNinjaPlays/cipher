@@ -1,4 +1,4 @@
-2# cipher
+# cipher
 ## cipher encrypted messaging
 💬 Cipher is an End-to-End Encrypted messaging app built on HTML. Messages are encrypted and only users with the correct Room ID and Passphrase can view messages and chat in that specific room.
 
