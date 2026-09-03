@@ -10,13 +10,13 @@
   - Added detection for Phone sign-in not enabled and for running as a local file
 
 ⏳ Version History:
-#### v0.0.1
+#### v0.0.1 (August xx, 2026)
   - Cipher created
       - Messaging function, encryption, and Room ID/Passphrase functions added
-#### v0.0.2
+#### v0.0.2 (September 3, 2026)
   - Login function added
       - Login via Email w/Password, Email w/Link, and Phone (did not work) added
-#### v0.0.3
+#### v0.0.3 (September 3, 2026)
   - Fixed reCAPTCHA verifier misconstruction
   - Added better error messages, unhid error codes
   - Added detection for Phone sign-in not enabled and for running as a local file
